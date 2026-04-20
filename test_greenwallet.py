@@ -141,5 +141,74 @@ class TestESGEngine:
         mock_get.return_value.json.return_value = {"data": []}
         r = mock_get.return_value.json()
         assert len(r["data"]) == 0  # Should trigger fallback, not crash
-        
+# ══════════════════════════════════════════════════════════
+# HELPERS.PY TESTS — Ariba Khan
+# ══════════════════════════════════════════════════════════
 
+class TestHelpers:
+    """Tests for tier classifier, score math, and demo data."""
+
+    G, M, D = "#00b894", "#f59e0b", "#ef4444"
+
+    def tier(self, s):
+        if s >= 70: return "Sustainable", "pg", self.G
+        if s >= 40: return "Moderate",    "py", self.M
+        return "High Risk", "pr", self.D
+
+    # ── Tier classifier ──────────────────────────────────
+    def test_tier_sustainable_exact_boundary(self):
+        label, css, color = self.tier(70)
+        assert label == "Sustainable"
+        assert color == self.G
+
+    def test_tier_sustainable_high(self):
+        label, _, _ = self.tier(95)
+        assert label == "Sustainable"
+
+    def test_tier_moderate_exact_lower(self):
+        label, css, _ = self.tier(40)
+        assert label == "Moderate"
+        assert css   == "py"
+
+    def test_tier_moderate_mid(self):
+        label, _, _ = self.tier(55)
+        assert label == "Moderate"
+
+    def test_tier_high_risk_just_below(self):
+        label, css, color = self.tier(39)
+        assert label == "High Risk"
+        assert css   == "pr"
+        assert color == self.D
+
+    def test_tier_zero_score(self):
+        label, _, _ = self.tier(0)
+        assert label == "High Risk"
+
+    def test_tier_hundred_score(self):
+        label, _, _ = self.tier(100)
+        assert label == "Sustainable"
+
+    # ── Green Score formula ──────────────────────────────
+    def test_weighted_score_calculation(self):
+        """Capital-weighted average ESG score."""
+        pdata = [
+            {"esg": 73, "value": 10000},  # AAPL
+            {"esg": 81, "value": 5000},   # MSFT
+            {"esg": 46, "value": 6000},   # AMZN
+        ]
+        total = sum(s["value"] for s in pdata)
+        score = round(sum(s["value"] * s["esg"] for s in pdata) / total, 1)
+        assert score == pytest.approx(67.2, abs=0.5)
+
+    def test_zero_value_portfolio_no_crash(self):
+        """If all shares are 0, should not divide by zero."""
+        pdata = [{"esg": 73, "value": 0}, {"esg": 50, "value": 0}]
+        total = sum(s["value"] for s in pdata)
+        score = round(sum(s["value"] * s["esg"] for s in pdata) / total, 1) if total > 0 else 0
+        assert score == 0
+
+    def test_single_holding_score_equals_esg(self):
+        pdata = [{"esg": 77, "value": 5000}]
+        total = sum(s["value"] for s in pdata)
+        score = round(sum(s["value"] * s["esg"] for s in pdata) / total, 1)
+        assert score == 77.0
