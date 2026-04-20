@@ -15,14 +15,21 @@ from config import gemini, G, M, D, MUTED, TEXT
 # ── LIVE PRICE ────────────────────────────────────────
 def get_price(t):
     try:
+        # yf.Ticker(t) looks up the stock symbol (e.g., "TSLA")
+        # .fast_info.last_price grabs the most recent trade price
+        # round(..., 2) makes sure we only see two decimal places (like $150.25)
         return round(yf.Ticker(t).fast_info.last_price, 2)
     except:
+        # If the ticker is wrong or the internet is down, return 0.0 to avoid an error message
         return 0.0
 
 # ── ESG TIER CLASSIFIER ───────────────────────────────
 def tier(s):
+    # If the score is 70 or higher, it's a top-tier "Sustainable" company (Green)
     if s >= 70: return "Sustainable", "pg", G
+    # If it's between 40 and 69, it's "Moderate" (Yellow)
     if s >= 40: return "Moderate",    "py", M
+    # Anything below 40 is flagged as "High Risk" (Red)
     return "High Risk", "pr", D
 
 # ── PROGRESS BAR RENDERER ────────────────────────────
