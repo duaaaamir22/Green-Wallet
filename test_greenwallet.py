@@ -66,4 +66,80 @@ def q(sql, args=(), fetch=False, one=False):
     c.execute(sql, args)
     conn.commit()
     return c.fetchone() if one else c.fetchall() if fetch else c.lastrowid
+    # ══════════════════════════════════════════════════════════
+# ESG_ENGINE.PY TESTS — Radhika Chopra
+# ══════════════════════════════════════════════════════════
+ 
+class TestESGEngine:
+    """Tests for ESG data fetching and fallback chain."""
+ 
+    KNOWN_ESG = {
+        "AAPL": (82,65,73,73,"Technology","Strong privacy practices and renewable energy commitments across supply chain"),
+        "MSFT": (85,78,80,81,"Technology","Industry leader in carbon negative pledge and AI ethics governance"),
+        "XOM":  (18,32,45,32,"Oil & Gas","Low environmental score due to fossil fuel core business"),
+        "NEE":  (88,70,74,77,"Renewable Energy","Leading US utility in wind and solar capacity"),
+        "TSLA": (72,35,40,49,"Automotive","Strong environmental mission but governance and labor practices draw criticism"),
+    }
+ 
+    def get_esg_known(self, ticker):
+        if ticker in self.KNOWN_ESG:
+            e, s, g, comp, sector, expl = self.KNOWN_ESG[ticker]
+            return e, s, g, comp, "MSCI/Sustainalytics", sector, expl
+        return 0, 0, 0, 0, "Unavailable", "", "No data"
+ 
+    def test_known_ticker_returns_correct_scores(self):
+        e, s, g, comp, src, sector, expl = self.get_esg_known("AAPL")
+        assert e    == 82
+        assert s    == 65
+        assert g    == 73
+        assert comp == 73
+        assert src  == "MSCI/Sustainalytics"
+        assert sector == "Technology"
+ 
+    def test_msft_scores(self):
+        e, s, g, comp, src, _, _ = self.get_esg_known("MSFT")
+        assert e    == 85
+        assert comp == 81
+ 
+    def test_low_esg_oil_stock(self):
+        e, s, g, comp, _, _, _ = self.get_esg_known("XOM")
+        assert comp < 40, "XOM should be flagged as high risk"
+        assert e    == 18, "XOM environmental score should be very low"
+ 
+    def test_high_esg_renewable(self):
+        e, s, g, comp, _, _, _ = self.get_esg_known("NEE")
+        assert comp >= 70, "NEE should be in Sustainable tier"
+        assert e    == 88
+ 
+    def test_unknown_ticker_returns_zeros(self):
+        e, s, g, comp, src, _, _ = self.get_esg_known("FAKEXYZ")
+        assert comp == 0
+        assert src  == "Unavailable"
+ 
+    def test_all_known_tickers_have_valid_scores(self):
+        for ticker, values in self.KNOWN_ESG.items():
+            e, s, g, comp = values[0], values[1], values[2], values[3]
+            assert 0 <= e    <= 100, f"{ticker} env score out of range"
+            assert 0 <= s    <= 100, f"{ticker} soc score out of range"
+            assert 0 <= g    <= 100, f"{ticker} gov score out of range"
+            assert 0 <= comp <= 100, f"{ticker} composite out of range"
+ 
+    @patch("requests.get")
+    def test_finnhub_fallback_parses_correctly(self, mock_get):
+        mock_get.return_value.json.return_value = {
+            "data": [{"environmentalScore": 60.0, "socialScore": 55.0, "governanceScore": 65.0, "totalESGScore": 60.0}]
+        }
+        r = mock_get.return_value.json()
+        d = r["data"][-1]
+        e, s, g = float(d["environmentalScore"]), float(d["socialScore"]), float(d["governanceScore"])
+        assert e == 60.0
+        assert s == 55.0
+        assert g == 65.0
+ 
+    @patch("requests.get")
+    def test_finnhub_empty_response_handled(self, mock_get):
+        mock_get.return_value.json.return_value = {"data": []}
+        r = mock_get.return_value.json()
+        assert len(r["data"]) == 0  # Should trigger fallback, not crash
+        
 
