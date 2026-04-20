@@ -176,6 +176,14 @@ def get_esg(ticker):
         q("REPLACE INTO esg_cache VALUES(?,?,?,?,?,?,?,?,?)", (ticker,e,s,g,comp,src,"","",datetime.now()))
         return e, s, g, comp, src, "", ""
     return 0, 0, 0, 0, "Unavailable", "", "No ESG data available. Try a different ticker."
+# ─────────────────────────────────────────────────────────
+# helpers.py
+# Contributor : Ariba Khan
+# Role        : Portfolio utilities — live price fetching,
+#               ESG tier logic, bar chart renderer,
+#               Gemini AI advisor, and demo portfolio data
+# Last commit : "feat: add advisor prompt + demo portfolio seeding"
+# ─────────────────────────────────────────────────────────
 import streamlit as st
 import yfinance as yf
 
