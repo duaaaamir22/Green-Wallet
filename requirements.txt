@@ -1,0 +1,7 @@
+streamlit
+requests
+pandas
+numpy
+yfinance
+google-generativeai
+pytest
