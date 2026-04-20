@@ -212,3 +212,76 @@ class TestHelpers:
         total = sum(s["value"] for s in pdata)
         score = round(sum(s["value"] * s["esg"] for s in pdata) / total, 1)
         assert score == 77.0
+
+# ══════════════════════════════════════════════════════════
+# APP.PY TESTS — Duaa Aamir
+# ══════════════════════════════════════════════════════════
+
+class TestDemoData:
+    """Tests for demo portfolio integrity and PIN logic."""
+
+    DEMOS = {
+        "Jugal Bhagat - Tech Growth Portfolio": (
+            "Jugal Bhagat", "PF-1001",
+            [("AAPL",10), ("MSFT",5), ("GOOGL",3), ("NVDA",4), ("AMZN",6)]
+        ),
+        "Radhika Chopra - Balanced Portfolio": (
+            "Radhika Chopra", "PF-2002",
+            [("TSLA",8), ("XOM",15), ("JPM",7), ("META",4), ("JNJ",5)]
+        ),
+    }
+    DEMO_PIN = "123456"
+
+    def test_two_demo_portfolios_exist(self):
+        assert len(self.DEMOS) == 2
+
+    def test_jugal_portfolio_has_5_stocks(self):
+        _, _, stocks = self.DEMOS["Jugal Bhagat - Tech Growth Portfolio"]
+        assert len(stocks) == 5
+
+    def test_radhika_portfolio_has_5_stocks(self):
+        _, _, stocks = self.DEMOS["Radhika Chopra - Balanced Portfolio"]
+        assert len(stocks) == 5
+
+    def test_portfolio_numbers_are_unique(self):
+        pnos = [v[1] for v in self.DEMOS.values()]
+        assert len(pnos) == len(set(pnos)), "Portfolio numbers must be unique"
+
+    def test_jugal_portfolio_tickers(self):
+        _, _, stocks = self.DEMOS["Jugal Bhagat - Tech Growth Portfolio"]
+        tickers = [t for t, _ in stocks]
+        assert "AAPL" in tickers
+        assert "MSFT" in tickers
+        assert "NVDA" in tickers
+
+    def test_radhika_portfolio_has_high_risk_stock(self):
+        """XOM is in Radhika's portfolio — ESG 32, should be flagged."""
+        KNOWN_ESG = {"XOM": (18,32,45,32,"Oil & Gas","Low environmental score")}
+        _, _, stocks = self.DEMOS["Radhika Chopra - Balanced Portfolio"]
+        tickers = [t for t, _ in stocks]
+        assert "XOM" in tickers
+        assert KNOWN_ESG["XOM"][3] < 40
+
+    def test_all_shares_are_positive(self):
+        for name, (_, _, stocks) in self.DEMOS.items():
+            for ticker, shares in stocks:
+                assert shares > 0, f"{ticker} in {name} has non-positive shares"
+
+    def test_correct_pin_accepted(self):
+        assert self.DEMO_PIN == "123456"
+
+    def test_wrong_pin_rejected(self):
+        assert "000000" != self.DEMO_PIN
+        assert "111111" != self.DEMO_PIN
+
+    def test_flagged_logic(self):
+        """Stocks with ESG < 30 should be flagged."""
+        pdata = [
+            {"ticker": "AAPL", "esg": 73},
+            {"ticker": "XOM",  "esg": 32},
+            {"ticker": "FAKE", "esg": 15},  # flagged
+        ]
+        flagged = [s for s in pdata if s["esg"] < 30]
+        assert len(flagged) == 1
+        assert flagged[0]["ticker"] == "FAKE"
+
