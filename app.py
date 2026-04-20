@@ -211,9 +211,12 @@ def tier(s):
 
 # ── PROGRESS BAR RENDERER ────────────────────────────
 def bar(label, val, color):
+    # st.markdown lets us use custom HTML design inside the Streamlit app
     st.markdown(
+        # This line creates the text labels and aligns them to the left and right
         f"<div style='display:flex;justify-content:space-between;font-size:13px;color:{MUTED}'>"
         f"<span>{label}</span><span style='font-weight:700;color:{color}'>{int(val)}/100</span></div>"
+        # This creates the gray background bar and the colored 'fill' bar
         f"<div class='pb'><div class='pf' style='width:{val}%;background:{color}'></div></div>",
         unsafe_allow_html=True
     )
