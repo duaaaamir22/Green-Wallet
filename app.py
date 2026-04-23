@@ -223,11 +223,13 @@ def bar(label, val, color):
 
 # ── AI ADVISOR (powered by Gemini) ───────────────────
 def ask_advisor(question, pdata, sc):
+    # This loop goes through every stock the user owns and turns it into a readable list for the AI
     """Real AI advisor using Gemini — not if/else."""
     holdings_str = "\n".join([
         f"- {s['ticker']}: ESG {s['esg']}/100 (E:{s['env']}, S:{s['soc']}, G:{s['gov']}), {s['sector']}, ${s['value']:,.0f}"
         for s in pdata
     ])
+    # This is the "Prompt" — the instructions we send to the Gemini AI
     prompt = f"""You are an ESG portfolio advisor inside GreenWallet app. The user's portfolio Green Score is {sc}/100.
 
 Their holdings:
@@ -239,13 +241,17 @@ User asks: "{question}"
 
 Give a clear, helpful, specific answer in 2-3 sentences. Reference their actual stocks and scores. No generic advice."""
     try:
+    # Sends the prompt to Google's Gemini and gets the text response back
         resp = gemini.generate_content(prompt)
         return resp.text.strip()
     except:
+    # If the AI fails, show the current score and a helpful tip instead
         return f"Portfolio score is {int(sc)}/100. Try asking about specific stocks or how to improve."
 
 # ── DEMO PORTFOLIOS ───────────────────────────────────
 DEMOS = {
+# Key: The name of the portfolio shown in the dropdown menu
+# Value: A tuple containing the Owner Name, ID, and a list of (Ticker, Shares)
     "Jugal Bhagat - Tech Growth Portfolio": (
         "Jugal Bhagat", "PF-1001",
         [("AAPL",10), ("MSFT",5), ("GOOGL",3), ("NVDA",4), ("AMZN",6)]
