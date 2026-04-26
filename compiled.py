@@ -131,3 +131,70 @@ def fetch_esg_finnhub(ticker):
     except:
         pass
     return None
+def get_esg(ticker):
+    if ticker in KNOWN_ESG:
+        e, s, g, comp, sector, expl = KNOWN_ESG[ticker]
+        return e, s, g, comp, "MSCI/Sustainalytics", sector, expl
+    try:
+        row = q("SELECT * FROM esg_cache WHERE ticker=?", (ticker,), one=True)
+        if row and len(row) >= 9 and row[8]:
+            if datetime.now() - datetime.strptime(str(row[8])[:19], "%Y-%m-%d %H:%M:%S") < timedelta(days=7):
+                return row[1], row[2], row[3], row[4], row[5], row[6] or "", row[7] or ""
+    except:
+        pass
+    result = fetch_esg_gemini(ticker)
+    if result:
+        e, s, g, comp, src, sector, expl = result
+        q("REPLACE INTO esg_cache VALUES(?,?,?,?,?,?,?,?,?)", (ticker, e, s, g, comp, src, sector, expl, datetime.now()))
+        return e, s, g, comp, src, sector, expl
+    result = fetch_esg_finnhub(ticker)
+    if result:
+        e, s, g, comp, src, _, _ = result
+        q("REPLACE INTO esg_cache VALUES(?,?,?,?,?,?,?,?,?)", (ticker, e, s, g, comp, src, "", "", datetime.now()))
+        return e, s, g, comp, src, "", ""
+    return 0, 0, 0, 0, "Unavailable", "", "No ESG data available."
+
+# ── HELPERS ───────────────────────────────────────────
+def get_price(ticker):
+    try:
+        return round(yf.Ticker(ticker).fast_info.last_price, 2)
+    except:
+        return 0.0
+
+def tier(score):
+    if score >= 70: return "Sustainable", "pg", G
+    if score >= 40: return "Moderate",    "py", M
+    return "High Risk", "pr", D
+
+def bar(label, val, color):
+    st.markdown(
+        f"<div style='display:flex;justify-content:space-between;font-size:13px;color:{MUTED}'>"
+        f"<span>{label}</span><span style='font-weight:700;color:{color}'>{int(val)}/100</span></div>"
+        f"<div class='pb'><div class='pf' style='width:{val}%;background:{color}'></div></div>",
+        unsafe_allow_html=True
+    )
+
+def ask_advisor(question, pdata, sc):
+    holdings_str = "\n".join([
+        f"- {s['ticker']}: ESG {s['esg']}/100 (E:{s['env']},S:{s['soc']},G:{s['gov']}), {s['sector']}, ${s['value']:,.0f}"
+        for s in pdata
+    ])
+    try:
+        resp = client.models.generate_content(
+            model="gemini-2.0-flash-001",
+            contents=(
+                f"ESG advisor. Score {sc}/100.\nHoldings:\n{holdings_str}\n"
+                f"User: \"{question}\"\n2-3 specific sentences."
+            )
+        )
+        return resp.text.strip()
+    except:
+        return f"Score is {int(sc)}/100. Ask about specific stocks or improvements."
+
+# ── DEMO PORTFOLIOS ───────────────────────────────────
+DEMOS = {
+    "Tech Growth Portfolio": [("AAPL",10),("MSFT",5),("GOOGL",3),("NVDA",4),("AMZN",6)],
+    "Balanced Portfolio":    [("TSLA",8),("XOM",15),("JPM",7),("META",4),("JNJ",5)],
+    "Clean Energy Portfolio":[("NEE",10),("ENPH",8),("TSLA",5),("CRM",4),("MSFT",3)],
+    "Blue Chip Portfolio":   [("AAPL",8),("JNJ",6),("KO",10),("V",5),("COST",4)],
+}
