@@ -162,3 +162,65 @@ def get_esg(ticker):
         q("REPLACE INTO esg_cache VALUES(?,?,?,?,?,?,?,?,?)", (ticker, e, s, g, comp, src, "", "", datetime.now()))
         return e, s, g, comp, src, "", ""
     return 0, 0, 0, 0, "Unavailable", "", "No ESG data available."
+# ─────────────────────────────────────────────────────────
+# helpers.py
+# Contributor : Ariba Khan
+# Role        : Live price fetching, ESG tier classifier,
+#               progress bar renderer, Gemini AI advisor,
+#               demo portfolio definitions
+# ─────────────────────────────────────────────────────────
+import streamlit as st
+import yfinance as yf
+from config import client, G, M, D, MUTED, TEXT
+
+# ── LIVE STOCK PRICE ──────────────────────────────────
+def get_price(ticker):
+    """Fetches real-time stock price from Yahoo Finance via yfinance."""
+    try:
+        return round(yf.Ticker(ticker).fast_info.last_price, 2)
+    except:
+        return 0.0
+
+# ── ESG TIER CLASSIFIER ──────────────────────────────
+def tier(score):
+    """Classifies ESG score into Sustainable/Moderate/High Risk with color."""
+    if score >= 70: return "Sustainable", "pg", G
+    if score >= 40: return "Moderate",    "py", M
+    return "High Risk", "pr", D
+
+# ── PROGRESS BAR RENDERER ────────────────────────────
+def bar(label, val, color):
+    """Renders a custom HTML progress bar for ESG breakdown display."""
+    st.markdown(
+        f"<div style='display:flex;justify-content:space-between;font-size:13px;color:{MUTED}'>"
+        f"<span>{label}</span><span style='font-weight:700;color:{color}'>{int(val)}/100</span></div>"
+        f"<div class='pb'><div class='pf' style='width:{val}%;background:{color}'></div></div>",
+        unsafe_allow_html=True
+    )
+
+# ── AI ESG ADVISOR (powered by Gemini) ───────────────
+def ask_advisor(question, pdata, sc):
+    """Sends portfolio data + user question to Gemini for a real AI response."""
+    holdings_str = "\n".join([
+        f"- {s['ticker']}: ESG {s['esg']}/100 (E:{s['env']},S:{s['soc']},G:{s['gov']}), {s['sector']}, ${s['value']:,.0f}"
+        for s in pdata
+    ])
+    try:
+        resp = client.models.generate_content(
+            model="gemini-2.0-flash-001",
+            contents=(
+                f"ESG advisor. Score {sc}/100.\nHoldings:\n{holdings_str}\n"
+                f"User: \"{question}\"\n2-3 specific sentences."
+            )
+        )
+        return resp.text.strip()
+    except:
+        return f"Score is {int(sc)}/100. Ask about specific stocks or improvements."
+
+# ── DEMO PORTFOLIOS ──────────────────────────────────
+DEMOS = {
+    "Tech Growth Portfolio": [("AAPL",10),("MSFT",5),("GOOGL",3),("NVDA",4),("AMZN",6)],
+    "Balanced Portfolio":    [("TSLA",8),("XOM",15),("JPM",7),("META",4),("JNJ",5)],
+    "Clean Energy Portfolio":[("NEE",10),("ENPH",8),("TSLA",5),("CRM",4),("MSFT",3)],
+    "Blue Chip Portfolio":   [("AAPL",8),("JNJ",6),("KO",10),("V",5),("COST",4)],
+}
